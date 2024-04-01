@@ -4,7 +4,6 @@ from get_client import get_client
 from qdrant_client import models
 
 model_id = "naver/splade-cocondenser-ensembledistil"
-
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 model = AutoModelForMaskedLM.from_pretrained(model_id)
 
@@ -12,7 +11,7 @@ def compute_vector(text):
     """
     Computes a vector from logits and attention mask using ReLU, log, and max operations.
     """
-    tokens = tokenizer(text, return_tensors="pt")
+    tokens = tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
     output = model(**tokens)
     logits, attention_mask = output.logits, tokens.attention_mask
     relu_log = torch.log(1 + torch.relu(logits))
@@ -56,16 +55,14 @@ def extract_and_map_sparse_vector(vector, tokenizer):
 
     return sorted_token_weight_dict
 
-action = sys.argv[1]
 client = get_client()
-collection_name = 'sparse_collection'
 
 def get_sparse_collection(client, collection_name):
     client.recreate_collection(
         collection_name=collection_name,
         vectors_config={},
         sparse_vectors_config={
-            "text": models.SparseVectorParams(
+            "comment": models.SparseVectorParams(
                 index=models.SparseIndexParams(
                     on_disk=False,
                 )
@@ -74,43 +71,49 @@ def get_sparse_collection(client, collection_name):
     )
 
 
-if action == "query":
-    if(len(sys.argv)>2 and len(sys.argv[2])>0):
-        query = sys.argv[2]
-        print("Searching for:", query)
+def query_sparse(query_text, collection_name="sparse_collection"):
+    get_sparse_collection(client, collection_name)
+    print("Searching for:", query_text)
 
-        query_vec, query_tokens = compute_vector(query)
-        query_vec.shape
+    query_vec, query_tokens = compute_vector(query_text)
+    query_vec.shape
 
-        query_indices = query_vec.nonzero().numpy().flatten()
-        query_values = query_vec.detach().numpy()[indices]
-                
-        hits = client.search(
-            collection_name=collection_name,
-            query_vector=models.NamedSparseVector(
-                name="text",
-                vector=models.SparseVector(
-                    indices=query_indices,
-                    values=query_values,
-                ),
+    print(extract_and_map_sparse_vector(query_vec, tokenizer))
+    query_indices = query_vec.nonzero().numpy().flatten().tolist()
+    query_values = query_vec.detach().numpy()[query_indices].tolist() 
+    
+    return client.search(collection_name=collection_name,
+        query_vector=models.NamedSparseVector(
+            name="comment",
+            vector=models.SparseVector(
+                indices=query_indices,
+                values=query_values,
             ),
-            with_vectors=True,
-        )
-
-        for hit in hits:
-            print(hit.payload, "score:", hit.score)
-    else: 
-        print("Please enter a query")
-elif action == "insert":
-    comments = pd.read_csv('./data/comments.csv')["COMMENTS"].dropna()
-    print("inserting %d comments" % len(comments))
-    client.upload_points(
-        collection_name=collection_name,
-        points=[
-            models.PointStruct(
-                id=idx, vector=encoder.encode(doc).tolist(), payload={'idx':idx, 'comment':doc}
-            )
-            for idx, doc in enumerate(comments)
-        ],
+        ),
+        with_vectors=True,
     )
-    print("done.")
+        
+def insert_sparse(comments, collection_name="sparse_collection"):
+    get_sparse_collection(client, collection_name)
+    for idx, doc in enumerate(comments):
+        print(f"Inserting comment {idx}")
+        vec, tokens = compute_vector(doc)
+        
+        print(extract_and_map_sparse_vector(vec, tokenizer))
+        indices = vec.nonzero().numpy().flatten()
+        values = vec.detach().numpy()[indices]
+        client.upsert(
+            collection_name=collection_name,
+            points=[
+                models.PointStruct(
+                    id=idx,
+                    payload={
+                        'index':idx, 'raw':doc},
+                    vector={
+                        "comment": models.SparseVector(
+                            indices=indices.tolist(), values=values.tolist()
+                        )
+                    },
+                )
+            ],
+        )

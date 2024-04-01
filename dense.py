@@ -8,21 +8,18 @@ import sys
 action = sys.argv[1]
 
 client = get_client()
-collection_name = 'test_collection2'
 encoder = get_encoder()
-collection = get_collection(client, collection_name, encoder)
 
-def query_dense(query_text):
-    print("Searching for:", query_text)
+def query_dense(query_text, collection_name="dense_collection"):
+    collection = get_collection(client, collection_name, encoder)
     return client.search(
         collection_name=collection_name,
         query_vector=encoder.encode(query_text).tolist(),
         limit=10,
     )
 
-def insert_dense():
-    comments = pd.read_csv('./data/comments.csv')["COMMENTS"].dropna()
-    print("inserting %d comments" % len(comments))
+def insert_dense(comments, collection_name = "dense_collection"):
+    collection = get_collection(client, collection_name, encoder)
     client.upload_points(
         collection_name=collection_name,
         points=[
@@ -32,14 +29,3 @@ def insert_dense():
             for idx, doc in enumerate(comments)
         ],
     )
-
-if action == "query":
-    if(len(sys.argv)>2 and len(sys.argv[2])>0):
-        hits = query_dense(sys.argv[2])
-        for hit in hits:
-            print(hit.payload, "score:", hit.score)
-    else: 
-        print("Please enter a query")
-elif action == "insert":
-    insert_dense()
-    print("done.")
