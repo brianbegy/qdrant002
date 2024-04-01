@@ -10,21 +10,29 @@ action = sys.argv[1]
 client = get_client()
 encoder = get_encoder()
 
-def query_dense(query_text, collection_name="dense_collection"):
-    collection = get_collection(client, collection_name, encoder)
-    return client.search(
+def query_dense(query_text, collection_name):
+    get_collection(client, collection_name, encoder)
+    query_dense_vector = encoder.encode(query_text).tolist()
+    return client.search_batch(
         collection_name=collection_name,
-        query_vector=encoder.encode(query_text).tolist(),
-        limit=10,
-    )
+        requests=[
+            models.SearchRequest(
+                vector=models.NamedVector(
+                    name="comment_dense",
+                    vector=query_dense_vector,
+                ),
+                limit=10,
+            ),
+        ])
 
-def insert_dense(comments, collection_name = "dense_collection"):
-    collection = get_collection(client, collection_name, encoder)
+def insert_dense(comments, collection_name):
+    get_collection(client, collection_name, encoder)
+    print(collection_name)
     client.upload_points(
         collection_name=collection_name,
         points=[
             models.PointStruct(
-                id=idx, vector=encoder.encode(doc).tolist(), payload={'idx':idx, 'comment':doc}
+                id=idx, vector=encoder.encode(doc).tolist(), payload={'idx':idx, 'comment_dense':doc}
             )
             for idx, doc in enumerate(comments)
         ],

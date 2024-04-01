@@ -62,7 +62,7 @@ def get_sparse_collection(client, collection_name):
         collection_name=collection_name,
         vectors_config={},
         sparse_vectors_config={
-            "comment": models.SparseVectorParams(
+            "comment_sparse": models.SparseVectorParams(
                 index=models.SparseIndexParams(
                     on_disk=False,
                 )
@@ -71,7 +71,7 @@ def get_sparse_collection(client, collection_name):
     )
 
 
-def query_sparse(query_text, collection_name="sparse_collection"):
+def query_sparse(query_text, collection_name):
     get_sparse_collection(client, collection_name)
     print("Searching for:", query_text)
 
@@ -84,7 +84,7 @@ def query_sparse(query_text, collection_name="sparse_collection"):
     
     return client.search(collection_name=collection_name,
         query_vector=models.NamedSparseVector(
-            name="comment",
+            name="comment_sparse",
             vector=models.SparseVector(
                 indices=query_indices,
                 values=query_values,
@@ -93,7 +93,7 @@ def query_sparse(query_text, collection_name="sparse_collection"):
         with_vectors=True,
     )
         
-def insert_sparse(comments, collection_name="sparse_collection"):
+def insert_sparse(comments, collection_name):
     get_sparse_collection(client, collection_name)
     for idx, doc in enumerate(comments):
         print(f"Inserting comment {idx}")
@@ -110,7 +110,7 @@ def insert_sparse(comments, collection_name="sparse_collection"):
                     payload={
                         'index':idx, 'raw':doc},
                     vector={
-                        "comment": models.SparseVector(
+                        "comment_sparse": models.SparseVector(
                             indices=indices.tolist(), values=values.tolist()
                         )
                     },

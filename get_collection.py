@@ -1,11 +1,19 @@
 from qdrant_client import models
 
 def get_collection(client, collection_name, encoder):
-    try:
-      return client.get_collection(collection_name=collection_name)
-    except Exception as e:
-        collection = client.create_collection(
-            collection_name=collection_name,
-            vectors_config=models.VectorParams(size=encoder.get_sentence_embedding_dimension(), distance=models.Distance.COSINE),
+    return client.recreate_collection(
+    collection_name=collection_name,
+    vectors_config={
+        "comment_dense": models.VectorParams(
+            size=384,
+            distance=models.Distance.COSINE,
         )
-        return collection
+    },
+    sparse_vectors_config={
+        "comment_sparse": models.SparseVectorParams(
+            index=models.SparseIndexParams(
+                on_disk=False,
+            )
+        )
+    },
+)

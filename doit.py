@@ -10,6 +10,7 @@ action = sys.argv[1]
 client = get_client()
 collection_name = 'test_collection2'
 encoder = get_encoder()
+print(encoder)
 collection = get_collection(client, collection_name, encoder)
 
 if action == "query":
