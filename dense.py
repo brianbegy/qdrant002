@@ -17,7 +17,7 @@ def query_dense(query_text, collection_name):
     # Create the query vector
     query_vector = models.NamedVector(name= 'comment_dense', vector=encoder.encode(query_text).tolist())
     # Perform the search
-    results = client.search(collection_name=collection_name, query_vector=query_vector)
+    results = client.search(collection_name=collection_name, query_vector=query_vector, limit=100)
 
     return list(map(lambda x: {'raw': x.payload['raw'], 'score': x.score}, results))
 
