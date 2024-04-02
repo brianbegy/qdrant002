@@ -2,6 +2,7 @@ import torch
 from transformers import AutoModelForMaskedLM, AutoTokenizer
 from get_client import get_client
 from qdrant_client import models
+from get_collection import get_collection
 
 model_id = "naver/splade-cocondenser-ensembledistil"
 tokenizer = AutoTokenizer.from_pretrained(model_id)
@@ -57,32 +58,17 @@ def extract_and_map_sparse_vector(vector, tokenizer):
 
 client = get_client()
 
-def get_sparse_collection(client, collection_name):
-    client.recreate_collection(
-        collection_name=collection_name,
-        vectors_config={},
-        sparse_vectors_config={
-            "comment_sparse": models.SparseVectorParams(
-                index=models.SparseIndexParams(
-                    on_disk=False,
-                )
-            )
-        },
-    )
-
-
 def query_sparse(query_text, collection_name):
-    get_sparse_collection(client, collection_name)
+    get_collection(client, collection_name)
     print("Searching for:", query_text)
 
     query_vec, query_tokens = compute_vector(query_text)
     query_vec.shape
 
-    print(extract_and_map_sparse_vector(query_vec, tokenizer))
     query_indices = query_vec.nonzero().numpy().flatten().tolist()
     query_values = query_vec.detach().numpy()[query_indices].tolist() 
     
-    return client.search(collection_name=collection_name,
+    results =  client.search(collection_name=collection_name,
         query_vector=models.NamedSparseVector(
             name="comment_sparse",
             vector=models.SparseVector(
@@ -92,14 +78,12 @@ def query_sparse(query_text, collection_name):
         ),
         with_vectors=True,
     )
-        
+    return list(map(lambda x: {'raw': x.payload['raw'], 'score': x.score}, results))
+    
 def insert_sparse(comments, collection_name):
-    get_sparse_collection(client, collection_name)
+    get_collection(client, collection_name)
     for idx, doc in enumerate(comments):
-        print(f"Inserting comment {idx}")
         vec, tokens = compute_vector(doc)
-        
-        print(extract_and_map_sparse_vector(vec, tokenizer))
         indices = vec.nonzero().numpy().flatten()
         values = vec.detach().numpy()[indices]
         client.upsert(

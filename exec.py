@@ -17,12 +17,14 @@ if action == "query":
         print(f"Searching for: {query_text}")
         
         hits = query_sparse(query_text, collection_name) if density == "sparse" else query_dense(query_text, collection_name)
-        print(hits)
+ 
+        print(f"{len(hits)} hits")
+        
         for hit in hits:
-            print(hit, "score:", hit)
+            print('score:', hit['score'], 'raw:', hit['raw'])
             
 elif action == "insert":
-    comments = pd.read_csv('./data/comments.csv')["COMMENTS"].dropna().head(100)
+    comments = pd.read_csv('./data/comments.csv')["COMMENTS"].dropna().head(1000)
     comment_length = len(comments)
     print(f"inserting {comment_length} comments using a {density} vector.")
     if density == "sparse":
